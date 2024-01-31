@@ -1,10 +1,13 @@
 import numpy as np
-from numpy.random import random
+from time import sleep
 from sweeper.classes import ndsweeps, dataplot
 
                               ### --- ###
                            ###ACQUISITION###
                               ### --- ###
+def random_w_sleep(x):
+    sleep(0.1)
+    return(np.random.random(x))
 
 #initializes a ndsweeps instance
 swp = ndsweeps(wd = 'C:/data/sweeper_example/')
@@ -26,12 +29,12 @@ swp.add_ax(name = 'p2',
 #adds acquisition
 
 swp.add_acquisition(name = 'S11',
-                    acquisition = {'POL' : lambda : random(11),
-                                   'FREQ' : lambda : random(11)})
+                    acquisition = {'POL' : lambda : random_w_sleep(11),
+                                   'FREQ' : lambda : random_w_sleep(11)})
 
 swp.add_acquisition(name = 'S21',
-                    acquisition = {'POL' : lambda : random(11),
-                                   'FREQ' : lambda : random(11)})
+                    acquisition = {'POL' : lambda : random_w_sleep(11),
+                                   'FREQ' : lambda : random_w_sleep(11)})
 #runs the sweep and retrieves the path to data
 folder = swp.run()
 
@@ -51,16 +54,16 @@ swp_plot.load_data()
 def dB(x):
     return(10 * np.log10(np.abs(x)))
 
-swp_plot.plot_slice(fixed_params = {'p1' : 0.5,
-                                    'p2' : 0.7},
+swp_plot.plot_slice(fixed_params = {'p1' : -1,
+                                    'p2' : -1},
                     acquisition = 'S11',
                     xtrace = 'FREQ',
                     ytrace = 'POL',
                     xfunc = dB,
                     yfunc = np.real)
 
-swp_plot.plot_slice(fixed_params = {'p1' : 0.5,
-                                    'p2' : 0.7},
+swp_plot.plot_slice(fixed_params = {'p1' : -1,
+                                    'p2' : -1},
                     acquisition = 'S21',
                     xtrace = 'FREQ',
                     ytrace = 'POL',
