@@ -8,14 +8,65 @@ from matplotlib import colors as plt_colors
 from matplotlib.widgets import Slider, Button
 from .data import data_util, save_data, load_data, create_dir
 import progressbar
+from copy import copy
 
+class acquisition_dict(dict):
+    
+    def __init__(self, dictionary):
+        '''
+        Acquisition dictionary class. Standard python dictionary with addition
+        of the "internal_axis" property getter and setter. The internal axis
+        is any 1D sweep performed by an external instrument, for example,
+        a frequency sweep in a VNA.
+        '''
+        self.__internal_axis = None
+        super().__init__(dictionary)
+        
+    @property
+    def internal_axis(self):
+        return(self.__internal_axis)
+    
+    @internal_axis.setter
+    def internal_axis(self, value):
+        
+        if isinstance(value, dict):
+            self.__internal_axis = value
+        else:
+            raise ValueError('internal axis must be a dict.')
+
+class axes_dict(OrderedDict):
+    
+    def __init__(self, dictionary = {}):
+        '''
+        Axes dictionary class. Standard python dictionary with addition
+        of the "internal_axes" property getter and setter. An internal ax
+        is any 1D sweep performed by an external instrument, for example,
+        a frequency sweep in a VNA. Each acquisition can have its own internal
+        axis.
+        '''
+        self.__inner_axes = {}
+        super().__init__(dictionary)
+        
+    @property
+    def inner_axes(self):
+        return(self.__inner_axes)
+    
+    def add_inner(self, acquisition, ax_dict):
+
+        self.__inner_axes[acquisition] = ax_dict
+        
+    def get_axes(self, acquisition):
+        axes = copy(self)
+        axes.update(self.inner_axes[acquisition])
+        return(axes)
+        
 class ndsweeps(data_util):
 
     def __init__(self, wd = 'C:/data/'):
         
         super().__init__(wd = wd)
         self.__state_dict = {}
-        self.__axes = OrderedDict()
+        self.__axes = axes_dict()
         self.__update = {}
         self.__action = {}
         self.__AXES = {}
@@ -51,10 +102,15 @@ class ndsweeps(data_util):
         
         self.__state_dict[name] = value
 
-    def add_acquisition(self, name, acquisition = {'None' : lambda: None}):
+    def add_acquisition(self, 
+                        name, 
+                        acquisition,
+                        inner_ax_dict):
         
         self.__acquisitions[name] = acquisition
-
+        self.__axes.add_inner(acquisition = name,
+                              ax_dict = inner_ax_dict)
+        
     def add_ax(self, name, values, action):
         
         if not isinstance(values, np.ndarray) or values.ndim != 1:
@@ -123,7 +179,8 @@ class ndsweeps(data_util):
                 
                 self.__data[acq_name][trace_name].append(trace_func())  
                 if save_temp: #fills temp_data dictionary if requested
-                    temp_data[acq_name][trace_name] = self.__data[acq_name][trace_name][-1]
+                    temp_data[acq_name][trace_name] = \
+                        self.__data[acq_name][trace_name][-1]
             
             if save_temp: #saves temp_data dicitonary if requested
                 temp_trace_folder = self.__folder + 'temp/' + acq_name
@@ -136,13 +193,17 @@ class ndsweeps(data_util):
             
             for trace_name in self.__data[acq_name]:
                 
+                N = len(self.__data[acq_name][trace_name])
                 single_element = self.__data[acq_name][trace_name][0]
                 empty_element = single_element * np.NaN
-                self.__data[acq_name][trace_name] += [empty_element for j in range (self.__N - i)]
+                self.__data[acq_name][trace_name] += \
+                    [empty_element for j in range (self.__N - N)]
                 
     def handle_exception(self, i):
         
-        user_input = 'Y'
+        user_input = ''
+        while user_input not in ['Y', 'N']:
+            user_input = input('Save temp data? (Y/N) ').upper()
         if user_input == 'Y':
             self.fill_with_NaN(i)
         return(user_input)
@@ -512,10 +573,10 @@ class dataplot(object):
         
         fig, ax = plt.subplots()
         
-        p = ax.pcolormesh(  xdata, 
-                            ydata, 
-                            zdata,
-                            **kwargs)
+        p = ax.pcolormesh(xdata, 
+                          ydata, 
+                          zdata,
+                          **kwargs)
 
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
@@ -554,8 +615,9 @@ class dataplot(object):
                 name of the trace to use for z
 
             reduce_func : callable
-                single-argument function which acts on last index of the ztrace to reduce
-                array dimension from 3 to 2. Typically used to average repeated measurements.
+                single-argument function which acts on last index of the 
+                ztrace to reduce array dimension from 3 to 2. 
+                Typically used to average repeated measurements.
             Returns
             -------
             dict = {'xname' : xname,

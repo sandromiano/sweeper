@@ -13,14 +13,14 @@ def random_w_sleep(x):
 swp = ndsweeps(wd = 'C:/data/sweeper_example/')
 
 #adds p1 ax
-p1 = np.linspace(-1,1,21)
+p1 = np.linspace(-1,1,11)
 
 swp.add_ax(name = 'p1',
            values = p1,
            action = lambda x : print('\n p1 = ' + str(x)))
 
 #adds p2 ax
-p2 = np.linspace(-1,1,21)
+p2 = np.linspace(-1,1,11)
 
 swp.add_ax(name = 'p2',
            values = p2,
@@ -28,16 +28,18 @@ swp.add_ax(name = 'p2',
 
 #adds acquisition
 
-swp.add_acquisition(name = 'S11',
-                    acquisition = {'POL' : lambda : random_w_sleep(11),
-                                   'FREQ' : lambda : random_w_sleep(11)})
+swp.add_acquisition(name = 'LINEAR_RESPONSE',
+                    acquisition = {'S11' : lambda : random_w_sleep(11),
+                                   'S21' : lambda : random_w_sleep(11)},
+                    inner_ax_dict = {'FREQ' : np.linspace(2,3,11)})
 
-swp.add_acquisition(name = 'S21',
-                    acquisition = {'POL' : lambda : random_w_sleep(11),
-                                   'FREQ' : lambda : random_w_sleep(11)})
+
+swp.add_acquisition(name = 'STARK_SHIFT',
+                    acquisition = {'S11' : lambda : random_w_sleep(11),
+                                   'S21' : lambda : random_w_sleep(11)},
+                    inner_ax_dict = {'FREQ' : np.linspace(2,4,11)})
 #runs the sweep and retrieves the path to data
 folder = swp.run()
-
 #%%
                               ### --- ###
                           ###VISUALIZATION###
