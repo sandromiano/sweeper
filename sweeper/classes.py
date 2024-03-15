@@ -142,7 +142,9 @@ class ndsweeps(data_util):
                 
     def handle_exception(self, i):
         
-        user_input = 'Y'
+        user_input = ''
+        while user_input not in ['Y', 'N']:
+            user_input = input('Save temp data? (Y/N) ').upper()
         if user_input == 'Y':
             self.fill_with_NaN(i)
         return(user_input)
@@ -158,7 +160,6 @@ class ndsweeps(data_util):
                 
                 if isinstance(trace_data[0], np.ndarray):
                     shape = trace_data[0].shape
-                    
                 else:
                     shape = ()
                     
@@ -173,7 +174,6 @@ class ndsweeps(data_util):
     def run(self, save_temp = True):
         
         self.__build() #builds flattened axes
-        
         self.__folder = self.create_data_folder(sweep_type = self.__sweep_type,
                                          temp = save_temp)
         
@@ -579,9 +579,6 @@ class dataplot(object):
                         else fixed_indexes[key] for key in self.__axes_keys])
 
         data = self.__acquisitions[acquisition]
-        
-        xshape = data[ztrace].shape[-1]
-        yshape = data[ztrace].shape[-1]
         
         x, y = np.meshgrid(self.__axes[xname], self.__axes[yname])
         
