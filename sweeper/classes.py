@@ -1,10 +1,8 @@
 import shutil
 import numpy as np
-from numpy.random import random
 from functools import reduce
 from collections import OrderedDict
 from matplotlib import pyplot as plt
-from matplotlib import colors as plt_colors
 from matplotlib.widgets import Slider, Button
 from .data import data_util, save_data, load_data, create_dir
 import progressbar
