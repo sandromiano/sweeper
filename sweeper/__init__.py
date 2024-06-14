@@ -1,2 +1,2 @@
-from functions import *
-from colormaps import *
+from .functions import *
+from .colormaps import *

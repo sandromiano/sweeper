@@ -142,7 +142,9 @@ class ndsweeps(data_util):
         
         user_input = ''
         while user_input not in ['Y', 'N']:
-            user_input = input('Save temp data? (Y/N) ').upper()
+            user_input = input('\n' + \
+                               '### SWEEP ABORTED ###\n' + \
+                                   'Save temp data? (Y/N): ').upper()
         if user_input == 'Y':
             self.fill_with_NaN(i)
         return(user_input)
