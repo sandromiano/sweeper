@@ -6,67 +6,110 @@ from collections import OrderedDict
 from matplotlib import pyplot as plt
 from matplotlib import colors as plt_colors
 from matplotlib.widgets import Slider, Button
-from .data import data_util, save_data, load_data, create_dir
+from data import data_util, save_data, load_data, create_dir
 import progressbar
 from copy import copy
 
-class acquisition_dict(dict):
+class axis(object):
     
-    def __init__(self, dictionary):
+    def __init__(self, 
+                 name, 
+                 value, 
+                 action,
+                 internal = False):
+
+        self.__name = name
+        self.__value = value
+        self.__action = action
+        self.__internal = internal
+        
+    @property
+    def name(self):
+        return(self.__name)
+    
+    @property
+    def value(self):
+        return(self.__value)
+    
+    @property
+    def action(self):
+        return(self.__action)
+    
+    @property
+    def fixed(self):
+        return(self.__fixed)
+    
+class acquisition(dict):
+    
+    def __init__(self,
+                 name,
+                 action):
+        
         '''
         Acquisition dictionary class. Standard python dictionary with addition
         of the "internal_axis" property getter and setter. The internal axis
-        is any 1D sweep performed by an external instrument, for example,
-        a frequency sweep in a VNA.
+        is any internally swept parameter, for instance, frequency in a VNA.
         '''
+        
+        self.__name = name
+        self.__action = action
         self.__internal_axis = None
-        super().__init__(dictionary)
+
+    @property
+    def name(self):
+        return(self.__name)
+    
+    @property
+    def action(self):
+        return(self.__action)
         
     @property
     def internal_axis(self):
         return(self.__internal_axis)
     
-    @internal_axis.setter
-    def internal_axis(self, value):
+    def set_internal_axis(self, 
+                          name, 
+                          value, 
+                          action):
         
-        if isinstance(value, dict):
-            self.__internal_axis = value
-        else:
-            raise ValueError('internal axis must be a dict.')
+        self.__internal_axis = axis(name,
+                                    value,
+                                    action,
+                                    internal = True)
 
-class axes_dict(OrderedDict):
+class experiment(object):
     
-    def __init__(self, dictionary = {}):
-        '''
-        Axes dictionary class. Standard python dictionary with addition
-        of the "internal_axes" property getter and setter. An internal ax
-        is any 1D sweep performed by an external instrument, for example,
-        a frequency sweep in a VNA. Each acquisition can have its own internal
-        axis.
-        '''
-        self.__inner_axes = {}
-        super().__init__(dictionary)
+    def __init__(self):
         
+        self.__axes = {}
+        self.__acquisitions = {}
+    
     @property
-    def inner_axes(self):
-        return(self.__inner_axes)
+    def axes(self):
+        return(self.__axes)
     
-    def add_inner(self, acquisition, ax_dict):
-
-        self.__inner_axes[acquisition] = ax_dict
+    @property
+    def acquisitions(self):
+        return(self.__acquisitions)
+    
+    def add_acquisition(self, acquisition):
+        self.__acquisitions[acquisition.name] = acquisition
+    
         
-    def get_axes(self, acquisition):
-        axes = copy(self)
-        axes.update(self.inner_axes[acquisition])
-        return(axes)
         
+        
+        
+        
+        
+        
+    
 class ndsweeps(data_util):
 
     def __init__(self, wd = 'C:/data/'):
         
         super().__init__(wd = wd)
         self.__state_dict = {}
-        self.__axes = axes_dict()
+        self.__axes = {}
         self.__update = {}
         self.__action = {}
         self.__AXES = {}
