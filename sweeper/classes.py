@@ -156,7 +156,7 @@ class ndsweeps(data_util):
                 
                 single_element = self.__data[acq_name][trace_name][0]
                 empty_element = single_element * np.NaN
-                self.__data[acq_name][trace_name] += [empty_element for j in range (self.__N - i)]
+                self.__data[acq_name][trace_name] += [empty_element for j in range (self.__N - len(self.__data[acq_name][trace_name]))]
                 
     def handle_exception(self, i):
         

@@ -6,7 +6,7 @@ from sweeper.classes import ndsweeps, dataplot
                            ###ACQUISITION###
                               ### --- ###
 def random_w_sleep(x):
-    sleep(0.1)
+    sleep(0.05)
     return(np.random.random(x))
 
 #initializes a ndsweeps instance
