@@ -1,12 +1,14 @@
+from __future__ import print_function
 import numpy as np
 from time import sleep
-from sweeper.classes import ndsweeps, dataplot
+from sweeper_py27.classes import ndsweeps, dataplot
+
 
                               ### --- ###
                            ###ACQUISITION###
                               ### --- ###
 def random_w_sleep(x):
-    sleep(0.1)
+    sleep(0.05)
     return(np.random.random(x))
 
 #initializes a ndsweeps instance
