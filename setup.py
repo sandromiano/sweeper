@@ -8,7 +8,7 @@ setup(
       author_email = 'superconducting.nina@gmail.com',
       description = ('N-dimensional sweeper'),
       license = 'GNU General Public License, version 2',
-      packages = ['sweeper', 'sweeper.classes','sweeper.colormaps','sweeper.data','sweeper.functions'],
+      packages = ['sweeper'],
       package_data = {},
       include_package_data = True,
       install_requires = []
