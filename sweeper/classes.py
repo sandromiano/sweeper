@@ -284,12 +284,19 @@ class dataplot(object):
         '''
         
         fixed_indexes = {}
+        actual_fixed_params = {}
+        fixed_params_string = ''
         
         for param_name, param_value in zip(list(fixed_params.keys()), 
                                            list(fixed_params.values())):
             
             fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
                                                    - param_value))
+            
+            actual_fixed_params[param_name] = \
+                self.axes[param_name][fixed_indexes[param_name]]
+            
+            fixed_params_string.append(param_name + '= ' + str(actual_fixed_params[param_name]) + '\n')
         
         #slice along xaxis, for fixed indexes of other parameters
         _slice = tuple([fixed_indexes[key] for key in self.__axes_keys])
@@ -310,7 +317,7 @@ class dataplot(object):
                        'xdata' : xdata,
                        'ydata' : ydata}
             
-        return(sliced_data)
+        return(sliced_data, fixed_params_string)
     
     def plot_slice(self, 
                    fixed_params, 
@@ -352,12 +359,13 @@ class dataplot(object):
         if ytrace is None:
             raise(ValueError('"ytrace" cannot be "None".'))
         
-        data = self.get_slice(fixed_params = fixed_params,
-                              acquisition = acquisition,
-                              xtrace = xtrace, 
-                              ytrace = ytrace)
+        data, fixed_params_string = self.get_slice(fixed_params = fixed_params,
+                                                   acquisition = acquisition,
+                                                   xtrace = xtrace, 
+                                                   ytrace = ytrace)
         
         fig, ax = plt.subplots()
+        fig.title(fixed_params_string)
         
         if xtrace is not None:
             xname = data['xname']
