@@ -823,22 +823,27 @@ class dataplot(object):
     
         self.sliders = []
     
-        for i, ax in enumerate(self.axes):
+        slider_axes = self.axes
+    
+        for i, ax in enumerate(slider_axes):
             
+            if np.diff(slider_axes[ax])[0] < 0:
+                slider_axes[ax] = np.flip(slider_axes[ax])
+                
             sl = Slider(
                 ax = plt.axes([0.25, 0.1 + i * 0.05, 0.65, 0.03]),
                 label = ax,
-                valmin = self.axes[ax][0],
-                valmax = self.axes[ax][-1],
-                valstep = self.axes[ax],
-                valinit = self.axes[ax][0],
+                valmin = slider_axes[ax][0],
+                valmax = slider_axes[ax][-1],
+                valstep = slider_axes[ax],
+                valinit = slider_axes[ax][0],
             )
             self.sliders.append(sl)
     
         # The function to be called anytime a slider's value changes
         def update(val):
-            indexes = tuple([np.where(self.axes[ax] == slider.val)[0][0] 
-                       for ax, slider in zip(self.axes, self.sliders)])
+            indexes = tuple([np.where(slider_axes[ax] == slider.val)[0][0] 
+                       for ax, slider in zip(slider_axes, self.sliders)])
             
             plot.set_data(xdata[indexes], ydata[indexes])
             fig.canvas.draw_idle()
@@ -856,5 +861,5 @@ class dataplot(object):
         resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
         button = Button(resetax, 'Reset', hovercolor='0.975')
         button.on_clicked(reset)
-    
+        
         plt.show()
