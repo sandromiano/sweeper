@@ -296,7 +296,8 @@ class dataplot(object):
             actual_fixed_params[param_name] = \
                 self.axes[param_name][fixed_indexes[param_name]]
             
-            fixed_params_string.append(param_name + '= ' + str(actual_fixed_params[param_name]) + '\n')
+            fixed_params_string += \
+                param_name + '= ' + str(actual_fixed_params[param_name]) + '\t'
         
         #slice along xaxis, for fixed indexes of other parameters
         _slice = tuple([fixed_indexes[key] for key in self.__axes_keys])
@@ -365,7 +366,7 @@ class dataplot(object):
                                                    ytrace = ytrace)
         
         fig, ax = plt.subplots()
-        fig.title(fixed_params_string)
+        fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
         
         if xtrace is not None:
             xname = data['xname']
@@ -432,12 +433,20 @@ class dataplot(object):
         '''
 
         fixed_indexes = {}
+        actual_fixed_params = {}
+        fixed_params_string = ''
         
         for param_name, param_value in zip(list(fixed_params.keys()), 
                                            list(fixed_params.values())):
             
             fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
                                                    - param_value))
+            
+            actual_fixed_params[param_name] = \
+                self.axes[param_name][fixed_indexes[param_name]]
+            
+            fixed_params_string += \
+                param_name + '= ' + str(actual_fixed_params[param_name]) + '\t'
         
         #slice along x axis, for fixed indexes of other parameters
         _slice = tuple([slice(None) if key == xname
@@ -455,7 +464,7 @@ class dataplot(object):
                        'ydata' : data[ytrace][_slice],
                        'zdata' : data[ztrace][_slice]}
 
-        return(sliced_data)
+        return(sliced_data, fixed_params_string)
 
     def plot_2dslice(self,
                     fixed_params,
@@ -507,11 +516,11 @@ class dataplot(object):
         axis of generated plot
         '''
         
-        data = self.get_2dslice(xname = xparam,
-                                fixed_params = fixed_params,
-                                acquisition = acquisition,
-                                ytrace = ytrace,
-                                ztrace = ztrace)
+        data, fixed_params_string = self.get_2dslice(xname = xparam,
+                                                     fixed_params = fixed_params,
+                                                     acquisition = acquisition,
+                                                     ytrace = ytrace,
+                                                     ztrace = ztrace)
     
         if not transpose:
             xdata = data['xdata']
@@ -539,6 +548,7 @@ class dataplot(object):
             zname = zfunc.__name__ + '(' + zname + ')'
         
         fig, ax = plt.subplots()
+        fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
         
         p = ax.pcolormesh(  xdata, 
                             ydata, 
