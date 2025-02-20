@@ -9,6 +9,12 @@ def random_w_sleep(x):
     sleep(0.05)
     return(np.random.random(x))
 
+def preamble1():
+    print('preamble 1 called')
+    
+def preamble2():
+    print('preamble 2 called')    
+
 #initializes a ndsweeps instance
 swp = ndsweeps(wd = 'C:/data/sweeper_example/')
 
@@ -29,10 +35,12 @@ swp.add_ax(name = 'p2',
 #adds acquisition
 
 swp.add_acquisition(name = 'S11',
+                    preamble = preamble1,
                     acquisition = {'POL' : lambda : random_w_sleep(11),
                                    'FREQ' : lambda : random_w_sleep(11)})
 
 swp.add_acquisition(name = 'S21',
+                    preamble = preamble2,
                     acquisition = {'POL' : lambda : random_w_sleep(11),
                                    'FREQ' : lambda : random_w_sleep(11)})
 #runs the sweep and retrieves the path to data

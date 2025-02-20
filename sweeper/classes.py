@@ -120,6 +120,11 @@ class ndsweeps(data_util):
                 temp_data = {acq_name : {}}
                 temp_data['axes'] = temp_axes
             
+            #runs acquisition preamble if exists
+            acq_preamble = self.__acquisitions_preambles[acq_name]
+            if acq_preamble is not None:
+                acq_preamble()
+                
             for trace_name, trace_func in acquisition.items():
                 
                 self.__data[acq_name][trace_name].append(trace_func())  

@@ -15,6 +15,7 @@ def define_phaseColorMap():
     rgb = rgb  / 65535.0
     # ListedColormap takes an arry of RGB weights normalized to be in [0,1]
     phase_cmap = plt_colors.ListedColormap(rgb, name='phase')
-    plt.register_cmap(name='phase', cmap=phase_cmap) 
+    plt.colormaps.register(name='phase', cmap=phase_cmap, force = True) 
     
+
 define_phaseColorMap()
