@@ -246,6 +246,44 @@ class dataplot(object):
     def state(self):
         return(self.__state)
     
+    def actual_fixed_params_and_indexes(self, fixed_params):
+        
+        '''
+        Parameters
+        ----------
+        fixed_params : dict {'param_name' : param_value}
+            dict of parameters and their values
+
+        Returns
+        -------
+        (actual_fixed_params, fixed_indexes): 
+            "actual_fixed_params" are the values of swept parameters which
+            are closest to those specified in "fixed_params";
+            "fixed_indexes" are the indexes which correspond to the 
+            "actual_fixed_params"
+        '''
+        
+        fixed_indexes = {}
+        actual_fixed_params = {}
+        for param_name, param_value in zip(list(fixed_params.keys()), 
+                                           list(fixed_params.values())):
+            
+            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
+                                                   - param_value))
+            
+            actual_fixed_params[param_name] = \
+                self.axes[param_name][fixed_indexes[param_name]]
+        
+        return(actual_fixed_params, fixed_indexes)
+    
+    def generate_fixed_params_string(self, fixed_params):
+        
+        fixed_params_string = ''
+        for param_name in fixed_params:
+            fixed_params_string += \
+                param_name + '= ' + str(fixed_params[param_name]) + '\t'
+        return(fixed_params_string)
+        
     def get_slice(self, 
                   fixed_params, 
                   acquisition, 
@@ -272,21 +310,8 @@ class dataplot(object):
         dictionary of sliced data
         '''
         
-        fixed_indexes = {}
-        actual_fixed_params = {}
-        fixed_params_string = ''
-        
-        for param_name, param_value in zip(list(fixed_params.keys()), 
-                                           list(fixed_params.values())):
-            
-            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
-                                                   - param_value))
-            
-            actual_fixed_params[param_name] = \
-                self.axes[param_name][fixed_indexes[param_name]]
-            
-            fixed_params_string += \
-                param_name + '= ' + str(actual_fixed_params[param_name]) + '\t'
+        actual_fixed_params, fixed_indexes = \
+            self.actual_fixed_params_and_indexes(fixed_params)
         
         #slice along xaxis, for fixed indexes of other parameters
         _slice = tuple([fixed_indexes[key] for key in self.__axes_keys])
@@ -307,7 +332,7 @@ class dataplot(object):
                        'xdata' : xdata,
                        'ydata' : ydata}
             
-        return(sliced_data, fixed_params_string)
+        return(sliced_data, actual_fixed_params)
     
     def plot_slice(self, 
                    fixed_params, 
@@ -349,12 +374,13 @@ class dataplot(object):
         if ytrace is None:
             raise(ValueError('"ytrace" cannot be "None".'))
         
-        data, fixed_params_string = self.get_slice(fixed_params = fixed_params,
-                                                   acquisition = acquisition,
-                                                   xtrace = xtrace, 
-                                                   ytrace = ytrace)
+        data, fixed_params = self.get_slice(fixed_params = fixed_params,
+                                            acquisition = acquisition,
+                                            xtrace = xtrace, 
+                                            ytrace = ytrace)
         
         fig, ax = plt.subplots()
+        fixed_params_string = self.generate_fixed_params_string(fixed_params)
         fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
         
         if xtrace is not None:
@@ -384,6 +410,131 @@ class dataplot(object):
         
         plt.tight_layout()
         
+        return(ax)
+    
+    def get_slice_reduced(self, 
+                          xname,
+                          fixed_params,
+                          acquisition,
+                          ytrace,
+                          reduce_func):
+    
+        '''
+            Parameters
+            ----------
+            xname : str
+                name of x axis along which extract data
+            
+            fixed_params : dict {'param_name' : param_value}
+                dict of parameters and their values at which slice data
+            
+            acquisition : str
+                name of the acquisition at which extract data
+            
+            ytrace : str
+                name of the trace to use for z
+
+            reduce_func : callable
+                single-argument function which acts on last index of the ztrace to reduce
+                array dimension from 2 to 1. Typically used to average repeated measurements.
+            Returns
+            -------
+            dict = {'xname' : xname,
+                    'yname' : ytrace,
+                    'xdata' : x,
+                    'ydata' : reduce_func(y)}
+            '''
+        
+        actual_fixed_params, fixed_indexes = \
+            self.actual_fixed_params_and_indexes(fixed_params)
+        
+        #slice along x axis, for fixed indexes of other parameters
+        _slice = tuple([slice(None) if key == xname
+                        else fixed_indexes[key] for key in self.__axes_keys])
+
+        data = self.__acquisitions[acquisition]
+        
+        x = self.__axes[xname]
+        
+        sliced_data = {'xname' : xname,
+                       'yname' : ytrace,
+                       'xdata' : x,
+                       'ydata' : reduce_func(data[ytrace][_slice])}
+            
+        return(sliced_data, actual_fixed_params)            
+    
+    def plot_slice_reduced(self,
+                           fixed_params,
+                           acquisition, 
+                           xparam = None,
+                           ytrace = None,
+                           reduce_func = lambda x : np.mean(x, axis = -1),
+                           xfunc = None,
+                           yfunc = None, 
+                           transpose = False,
+                           **kwargs):
+        
+        '''
+            Parameters
+            ----------
+            
+            fixed_params : dict {'param_name' : param_value}
+                dict of parameters and their values at which slice data
+            
+            acquisition : str
+                name of the acquisition at which extract data
+
+            xparam : str
+                name of x axis along which extract data
+
+            ytrace : str
+                name of the trace to use for y
+
+            reduce_func : callable
+                single-argument function which acts on last index of the ztrace to reduce
+                array dimension from 2 to 1. Typically used to average repeated measurements.
+            Returns
+            -------
+            dict = {'xname' : xname,
+                    'yname' : ytrace,
+                    'xdata' : x,
+                    'ydata' : reduce_func(y)}
+            '''
+        
+        data, fixed_params =\
+                    self.get_slice_reduced(xname = xparam, 
+                                             fixed_params = fixed_params,
+                                             acquisition = acquisition,
+                                             ytrace = ytrace,
+                                             reduce_func = reduce_func)
+         
+        xdata = data['xdata']
+        xname = data['xname']
+     
+        ydata = data['ydata']
+        yname = data['yname']
+         
+        if xfunc is not None:
+            xdata = xfunc(xdata)
+            xname = xfunc.__name__ + '(' + xname + ')'
+        if yfunc is not None:
+            ydata = yfunc(ydata)
+            yname = yfunc.__name__ + '(' + yname + ')'
+         
+        fig, ax = plt.subplots()
+        
+        fixed_params_string = self.generate_fixed_params_string(fixed_params)
+        fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
+        
+        ax.plot(xdata, 
+                ydata,
+                **kwargs)
+    
+        ax.set_xlabel(xname)
+        ax.set_ylabel(yname)
+
+        plt.tight_layout()
+
         return(ax)
     
     def get_2dslice(self, 
@@ -421,21 +572,8 @@ class dataplot(object):
                 'zdata' : z}
         '''
 
-        fixed_indexes = {}
-        actual_fixed_params = {}
-        fixed_params_string = ''
-        
-        for param_name, param_value in zip(list(fixed_params.keys()), 
-                                           list(fixed_params.values())):
-            
-            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
-                                                   - param_value))
-            
-            actual_fixed_params[param_name] = \
-                self.axes[param_name][fixed_indexes[param_name]]
-            
-            fixed_params_string += \
-                param_name + '= ' + str(actual_fixed_params[param_name]) + '\t'
+        actual_fixed_params, fixed_indexes = \
+            self.actual_fixed_params_and_indexes(fixed_params)
         
         #slice along x axis, for fixed indexes of other parameters
         _slice = tuple([slice(None) if key == xname
@@ -453,7 +591,7 @@ class dataplot(object):
                        'ydata' : data[ytrace][_slice],
                        'zdata' : data[ztrace][_slice]}
 
-        return(sliced_data, fixed_params_string)
+        return(sliced_data, actual_fixed_params)
 
     def plot_2dslice(self,
                     fixed_params,
@@ -505,11 +643,11 @@ class dataplot(object):
         axis of generated plot
         '''
         
-        data, fixed_params_string = self.get_2dslice(xname = xparam,
-                                                     fixed_params = fixed_params,
-                                                     acquisition = acquisition,
-                                                     ytrace = ytrace,
-                                                     ztrace = ztrace)
+        data, fixed_params = self.get_2dslice(xname = xparam,
+                                              fixed_params = fixed_params,
+                                              acquisition = acquisition,
+                                              ytrace = ytrace,
+                                              ztrace = ztrace)
     
         if not transpose:
             xdata = data['xdata']
@@ -537,6 +675,7 @@ class dataplot(object):
             zname = zfunc.__name__ + '(' + zname + ')'
         
         fig, ax = plt.subplots()
+        fixed_params_string = self.generate_fixed_params_string(fixed_params)
         fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
         
         p = ax.pcolormesh(  xdata, 
@@ -593,13 +732,8 @@ class dataplot(object):
                     'zdata' : reduce_func(z)}
             '''
         
-        fixed_indexes = {}
-        
-        for param_name, param_value in zip(list(fixed_params.keys()), 
-                                           list(fixed_params.values())):
-            
-            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
-                                                   - param_value))
+        actual_fixed_params, fixed_indexes = \
+            self.actual_fixed_params_and_indexes(fixed_params)
         
         #slice along x axis, for fixed indexes of other parameters
         _slice = tuple([slice(None) if key == xname or key == yname
@@ -616,7 +750,7 @@ class dataplot(object):
                        'ydata' : y,
                        'zdata' : reduce_func(data[ztrace][_slice])}
             
-        return(sliced_data)            
+        return(sliced_data, actual_fixed_params)            
     
     def plot_2dslice_reduced(self,
                             fixed_params,
@@ -663,12 +797,13 @@ class dataplot(object):
                     'zdata' : reduce_func(z)}
             '''
         
-        data = self.get_2dslice_reduced(xname = xparam, 
-                                        yname = yparam,
-                                        fixed_params = fixed_params,
-                                        acquisition = acquisition,
-                                        ztrace = ztrace,
-                                        reduce_func = reduce_func)
+        data, fixed_params =\
+                    self.get_2dslice_reduced(xname = xparam, 
+                                             yname = yparam,
+                                             fixed_params = fixed_params,
+                                             acquisition = acquisition,
+                                             ztrace = ztrace,
+                                             reduce_func = reduce_func)
          
         if not transpose:
             xdata = data['xdata']
@@ -696,7 +831,10 @@ class dataplot(object):
             zname = zfunc.__name__ + '(' + zname + ')'
          
         fig, ax = plt.subplots()
-         
+        
+        fixed_params_string = self.generate_fixed_params_string(fixed_params)
+        fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
+        
         p = ax.pcolormesh(xdata, 
                         ydata, 
                         zdata,
