@@ -18,6 +18,7 @@ class ndsweeps(data_util):
         self.__action = {}
         self.__AXES = {}
         self.__acquisitions = {}
+        self.__acquisitions_preambles = {}
         self.__data = {}
                 
     @property 
@@ -49,10 +50,11 @@ class ndsweeps(data_util):
         
         self.__state_dict[name] = value
 
-    def add_acquisition(self, name, preamble = None, acquisition = {'None' : lambda: None}):
+    def add_acquisition(self, name, preamble = None, 
+                        acquisition = {'None' : lambda : None}):
         
-        self.__acquisitions[name] = {'preamble' : preamble, 
-                                     'acquisition' : acquisition}
+        self.__acquisitions[name] = acquisition
+        self.__acquisitions_preambles[name] = preamble
 
     def add_ax(self, name, values, action):
         
@@ -111,20 +113,12 @@ class ndsweeps(data_util):
                 temp_axes[AX] = self.__AXES[AX]['values'][i]
                                     
         #sweeps traces
-        for acq_name, acq_dict in self.__acquisitions.items():
+        for acq_name, acquisition in self.__acquisitions.items():
             #acquires each trace component
             
             if save_temp: #creates temp_data dictionary if requested
                 temp_data = {acq_name : {}}
                 temp_data['axes'] = temp_axes
-            
-            #extracts acquisition from the outer acquisitions dictionary
-            acquisition = acq_dict['acquisition']
-            #extracts preamble callable from the outer acquisitions dictionary
-            preamble = acq_dict['preamble']
-            #calls preamble if exists
-            if preamble is not None:
-                preamble()
             
             for trace_name, trace_func in acquisition.items():
                 
@@ -145,7 +139,8 @@ class ndsweeps(data_util):
                 
                 single_element = self.__data[acq_name][trace_name][0]
                 empty_element = single_element * np.NaN
-                self.__data[acq_name][trace_name] += [empty_element for j in range (self.__N - i)]
+                self.__data[acq_name][trace_name] += [empty_element \
+                for j in range (self.__N - len(self.__data[acq_name][trace_name]))]
                 
     def handle_exception(self, i):
         
@@ -273,12 +268,20 @@ class dataplot(object):
         '''
         
         fixed_indexes = {}
+        actual_fixed_params = {}
+        fixed_params_string = ''
         
         for param_name, param_value in zip(list(fixed_params.keys()), 
                                            list(fixed_params.values())):
             
             fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
                                                    - param_value))
+            
+            actual_fixed_params[param_name] = \
+                self.axes[param_name][fixed_indexes[param_name]]
+            
+            fixed_params_string += \
+                param_name + '= ' + str(actual_fixed_params[param_name]) + '\t'
         
         #slice along xaxis, for fixed indexes of other parameters
         _slice = tuple([fixed_indexes[key] for key in self.__axes_keys])
@@ -299,7 +302,7 @@ class dataplot(object):
                        'xdata' : xdata,
                        'ydata' : ydata}
             
-        return(sliced_data)
+        return(sliced_data, fixed_params_string)
     
     def plot_slice(self, 
                    fixed_params, 
@@ -341,12 +344,13 @@ class dataplot(object):
         if ytrace is None:
             raise(ValueError('"ytrace" cannot be "None".'))
         
-        data = self.get_slice(fixed_params = fixed_params,
-                              acquisition = acquisition,
-                              xtrace = xtrace, 
-                              ytrace = ytrace)
+        data, fixed_params_string = self.get_slice(fixed_params = fixed_params,
+                                                   acquisition = acquisition,
+                                                   xtrace = xtrace, 
+                                                   ytrace = ytrace)
         
         fig, ax = plt.subplots()
+        fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
         
         if xtrace is not None:
             xname = data['xname']
@@ -413,12 +417,20 @@ class dataplot(object):
         '''
 
         fixed_indexes = {}
+        actual_fixed_params = {}
+        fixed_params_string = ''
         
         for param_name, param_value in zip(list(fixed_params.keys()), 
                                            list(fixed_params.values())):
             
             fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
                                                    - param_value))
+            
+            actual_fixed_params[param_name] = \
+                self.axes[param_name][fixed_indexes[param_name]]
+            
+            fixed_params_string += \
+                param_name + '= ' + str(actual_fixed_params[param_name]) + '\t'
         
         #slice along x axis, for fixed indexes of other parameters
         _slice = tuple([slice(None) if key == xname
@@ -436,7 +448,7 @@ class dataplot(object):
                        'ydata' : data[ytrace][_slice],
                        'zdata' : data[ztrace][_slice]}
 
-        return(sliced_data)
+        return(sliced_data, fixed_params_string)
 
     def plot_2dslice(self,
                     fixed_params,
@@ -488,11 +500,11 @@ class dataplot(object):
         axis of generated plot
         '''
         
-        data = self.get_2dslice(xname = xparam,
-                                fixed_params = fixed_params,
-                                acquisition = acquisition,
-                                ytrace = ytrace,
-                                ztrace = ztrace)
+        data, fixed_params_string = self.get_2dslice(xname = xparam,
+                                                     fixed_params = fixed_params,
+                                                     acquisition = acquisition,
+                                                     ytrace = ytrace,
+                                                     ztrace = ztrace)
     
         if not transpose:
             xdata = data['xdata']
@@ -520,6 +532,7 @@ class dataplot(object):
             zname = zfunc.__name__ + '(' + zname + ')'
         
         fig, ax = plt.subplots()
+        fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
         
         p = ax.pcolormesh(  xdata, 
                             ydata, 
@@ -534,7 +547,7 @@ class dataplot(object):
         
         plt.tight_layout()
         
-        return(ax)
+        return(ax, cbar)
     
     def get_2dslice_reduced(self, 
                             xname,
@@ -804,22 +817,27 @@ class dataplot(object):
     
         self.sliders = []
     
-        for i, ax in enumerate(self.axes):
+        slider_axes = self.axes
+    
+        for i, ax in enumerate(slider_axes):
             
+            if np.diff(slider_axes[ax])[0] < 0:
+                slider_axes[ax] = np.flip(slider_axes[ax])
+                
             sl = Slider(
                 ax = plt.axes([0.25, 0.1 + i * 0.05, 0.65, 0.03]),
                 label = ax,
-                valmin = self.axes[ax][0],
-                valmax = self.axes[ax][-1],
-                valstep = self.axes[ax],
-                valinit = self.axes[ax][0],
+                valmin = slider_axes[ax][0],
+                valmax = slider_axes[ax][-1],
+                valstep = slider_axes[ax],
+                valinit = slider_axes[ax][0],
             )
             self.sliders.append(sl)
     
         # The function to be called anytime a slider's value changes
         def update(val):
-            indexes = tuple([np.where(self.axes[ax] == slider.val)[0][0] 
-                       for ax, slider in zip(self.axes, self.sliders)])
+            indexes = tuple([np.where(slider_axes[ax] == slider.val)[0][0] 
+                       for ax, slider in zip(slider_axes, self.sliders)])
             
             plot.set_data(xdata[indexes], ydata[indexes])
             fig.canvas.draw_idle()
@@ -837,5 +855,5 @@ class dataplot(object):
         resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
         button = Button(resetax, 'Reset', hovercolor='0.975')
         button.on_clicked(reset)
-    
+        
         plt.show()
