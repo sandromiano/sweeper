@@ -18,4 +18,5 @@ def define_phaseColorMap():
     phase_cmap = plt_colors.ListedColormap(rgb, name='phase')
     colormaps.register(phase_cmap, name='phase') 
     
+
 define_phaseColorMap()

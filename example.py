@@ -6,8 +6,14 @@ from sweeper.classes import ndsweeps, dataplot
                            ###ACQUISITION###
                               ### --- ###
 def random_w_sleep(x):
-    sleep(0.1)
+    sleep(1e-6)
     return(np.random.random(x))
+
+def preamble1():
+    print('preamble 1 called')
+    
+def preamble2():
+    print('preamble 2 called')    
 
 #initializes a ndsweeps instance
 swp = ndsweeps(wd = 'C:/data/sweeper_example/')
@@ -29,15 +35,16 @@ swp.add_ax(name = 'p2',
 #adds acquisition
 
 swp.add_acquisition(name = 'S11',
+                    preamble = preamble1,
                     acquisition = {'POL' : lambda : random_w_sleep(11),
                                    'FREQ' : lambda : random_w_sleep(11)})
 
 swp.add_acquisition(name = 'S21',
+                    preamble = preamble2,
                     acquisition = {'POL' : lambda : random_w_sleep(11),
                                    'FREQ' : lambda : random_w_sleep(11)})
 #runs the sweep and retrieves the path to data
 folder = swp.run()
-
 #%%
                               ### --- ###
                           ###VISUALIZATION###
@@ -79,3 +86,11 @@ swp_plot.plot_2dslice(fixed_params = {'p2' : 0.5},
                     ztrace = 'POL',
                     yfunc = dB,
                     zfunc = np.real)
+#%%
+swp_plot.plot_slice_reduced(fixed_params = {'p1' : -1},
+                            acquisition = 'S11',
+                            xparam = 'p2',
+                            ytrace = 'POL',
+                            xfunc = None,
+                            yfunc = np.real,
+                            reduce_func = lambda x : x[..., 0])
