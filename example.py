@@ -77,7 +77,6 @@ swp_plot.plot_slice(fixed_params = {'p1' : -1,
                     xfunc = dB,
                     yfunc = np.real)
 #%%
-
 #plot 2d slice
 swp_plot.plot_2dslice(fixed_params = {'p2' : 0.5},
                     acquisition = 'S11',
