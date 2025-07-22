@@ -9,6 +9,18 @@ def random_w_sleep(x):
     sleep(0.1)
     return(np.random.random(x))
 
+def set_fstart(x):
+    pass
+def set_fstop(x):
+    pass
+def set_npoints(x):
+    pass
+
+def set_frequency_ax(x):
+    set_fstart(x[0])
+    set_fstop(x[-1])
+    set_npoints(len(x))
+    
 #initializes a ndsweeps instance
 swp = ndsweeps(wd = 'C:/data/sweeper_example/')
 
@@ -27,17 +39,19 @@ swp.add_ax(name = 'p2',
            action = lambda x : print('p2 = ' + str(x)))
 
 #adds acquisition
-
 swp.add_acquisition(name = 'LINEAR_RESPONSE',
+                    internal_ax = swp.ax(name = 'freq1',
+                                         action = set_frequency_ax,
+                                         values = np.linspace(1,2,101)),
                     acquisition = {'S11' : lambda : random_w_sleep(11),
-                                   'S21' : lambda : random_w_sleep(11)},
-                    inner_ax_dict = {'FREQ' : np.linspace(2,3,11)})
-
+                                   'S21' : lambda : random_w_sleep(11)},)
 
 swp.add_acquisition(name = 'STARK_SHIFT',
+                    internal_ax = swp.ax(name = 'freq2',
+                                         action = set_frequency_ax,
+                                         values = np.linspace(1,2,101)),
                     acquisition = {'S11' : lambda : random_w_sleep(11),
-                                   'S21' : lambda : random_w_sleep(11)},
-                    inner_ax_dict = {'FREQ' : np.linspace(2,4,11)})
+                                   'S21' : lambda : random_w_sleep(11)},)
 #runs the sweep and retrieves the path to data
 folder = swp.run()
 #%%

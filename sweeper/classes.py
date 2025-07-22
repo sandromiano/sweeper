@@ -16,12 +16,12 @@ class axis(object):
                  name, 
                  value, 
                  action,
-                 internal = False):
+                 external = False):
 
         self.__name = name
         self.__value = value
         self.__action = action
-        self.__internal = internal
+        self.__external = external
         
     @property
     def name(self):
@@ -36,14 +36,15 @@ class axis(object):
         return(self.__action)
     
     @property
-    def fixed(self):
-        return(self.__fixed)
+    def external(self):
+        return(self.__external)
     
-class acquisition(dict):
+class acquisition():
     
     def __init__(self,
                  name,
-                 action):
+                 action,
+                 external_axis):
         
         '''
         Acquisition dictionary class. Standard python dictionary with addition
@@ -53,7 +54,7 @@ class acquisition(dict):
         
         self.__name = name
         self.__action = action
-        self.__internal_axis = None
+        self.__external_axis = external_axis
 
     @property
     def name(self):
@@ -62,20 +63,10 @@ class acquisition(dict):
     @property
     def action(self):
         return(self.__action)
-        
-    @property
-    def internal_axis(self):
-        return(self.__internal_axis)
     
-    def set_internal_axis(self, 
-                          name, 
-                          value, 
-                          action):
-        
-        self.__internal_axis = axis(name,
-                                    value,
-                                    action,
-                                    internal = True)
+    @property
+    def external_axis(self):
+        return(self.__external_axis)
 
 class experiment(object):
     
@@ -94,15 +85,7 @@ class experiment(object):
     
     def add_acquisition(self, acquisition):
         self.__acquisitions[acquisition.name] = acquisition
-    
-        
-        
-        
-        
-        
-        
-        
-    
+
 class ndsweeps(data_util):
 
     def __init__(self, wd = 'C:/data/'):
@@ -113,7 +96,8 @@ class ndsweeps(data_util):
         self.__update = {}
         self.__action = {}
         self.__AXES = {}
-        self.__acquisitions = {}
+        self.__flattened_AXES = {}
+        self.__acquisition = None
         self.__data = {}
                 
     @property 
@@ -137,30 +121,35 @@ class ndsweeps(data_util):
         return(self.__AXES)
     
     @property
-    def acquisitions(self):
+    def acquisition(self):
         
-        return(self.__acquisitions)
+        return(self.__acquisition)
     
     def add_state_entry(self, name, value):
         
         self.__state_dict[name] = value
 
-    def add_acquisition(self, 
+    def set_acquisition(self,
                         name, 
-                        acquisition,
-                        inner_ax_dict):
+                        action,
+                        external_AXIS = None):
         
-        self.__acquisitions[name] = acquisition
-        self.__axes.add_inner(acquisition = name,
-                              ax_dict = inner_ax_dict)
+        self.__acquisition  = acquisition(name,
+                                          action,
+                                          external_AXIS)
         
-    def add_ax(self, name, values, action):
+        if external_AXIS is not None:
+            self.__AXES[name] = external_AXIS
         
-        if not isinstance(values, np.ndarray) or values.ndim != 1:
+    def add_AX(self, name, values, action):
+        
+        if not isinstance(values, np.ndarray):
             raise ValueError('ax values must be a 1-D numpy array.')
         
-        self.__axes[name] = np.array(values)
-        self.__action[name] = action
+        self.__AXES[name] = axis(name = name,
+                                 values = values,
+                                 action = action,
+                                 external = False)
 
     def __build(self):
         
@@ -169,7 +158,7 @@ class ndsweeps(data_util):
         self.__sweep_type = '_'.join(axes_names)
         
         #creates meshgrids for each ax
-        __NDAXES = np.meshgrid(*self.__axes.values(), indexing = 'ij')
+        __NDAXES = *self.AXES.values()
         #shape, to be used to reshape data
         self.__shape = __NDAXES[0].shape 
         #total number of acquisitions
