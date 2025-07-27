@@ -8,28 +8,29 @@ from matplotlib import colors as plt_colors
 from matplotlib.widgets import Slider, Button
 from data import data_util, save_data, load_data, create_dir
 import progressbar
-from copy import copy
+from copy import copy, deepcopy
 
 class axis(object):
     
     def __init__(self, 
                  name, 
-                 value, 
+                 values, 
                  action,
                  external = False):
 
         self.__name = name
-        self.__value = value
+        self.__values = values
         self.__action = action
         self.__external = external
+        self.__changed = None
         
     @property
     def name(self):
         return(self.__name)
     
     @property
-    def value(self):
-        return(self.__value)
+    def values(self):
+        return(self.__values)
     
     @property
     def action(self):
@@ -39,20 +40,25 @@ class axis(object):
     def external(self):
         return(self.__external)
     
+    @property
+    def changed(self):
+        return(self.__changed)
+    
 class acquisition():
     
     def __init__(self,
                  name,
                  action,
-                 external_axis):
+                 preamble = None,
+                 external_axis = None):
         
         '''
-        Acquisition dictionary class. Standard python dictionary with addition
-        of the "internal_axis" property getter and setter. The internal axis
-        is any internally swept parameter, for instance, frequency in a VNA.
+        Acquisition class. The external axis
+        is any externally swept parameter, for instance, frequency in a VNA.
         '''
         
         self.__name = name
+        self.__preamble = preamble
         self.__action = action
         self.__external_axis = external_axis
 
@@ -93,10 +99,9 @@ class ndsweeps(data_util):
         super().__init__(wd = wd)
         self.__state_dict = {}
         self.__axes = {}
-        self.__update = {}
         self.__action = {}
         self.__AXES = {}
-        self.__flattened_AXES = {}
+        self.__flat_AXES = {}
         self.__acquisition = None
         self.__data = {}
                 
@@ -121,6 +126,10 @@ class ndsweeps(data_util):
         return(self.__AXES)
     
     @property
+    def flat_AXES(self):
+        return(self.__flat_AXES)
+    
+    @property
     def acquisition(self):
         
         return(self.__acquisition)
@@ -132,11 +141,13 @@ class ndsweeps(data_util):
     def set_acquisition(self,
                         name, 
                         action,
+                        preamble = None,
                         external_AXIS = None):
         
-        self.__acquisition  = acquisition(name,
-                                          action,
-                                          external_AXIS)
+        self.__acquisition  = acquisition(name = name,
+                                          action = action,
+                                          preamble = preamble,
+                                          external_AXIS = external_AXIS)
         
         if external_AXIS is not None:
             self.__AXES[name] = external_AXIS
@@ -144,7 +155,7 @@ class ndsweeps(data_util):
     def add_AX(self, name, values, action):
         
         if not isinstance(values, np.ndarray):
-            raise ValueError('ax values must be a 1-D numpy array.')
+            raise ValueError('ax values must be numpy array.')
         
         self.__AXES[name] = axis(name = name,
                                  values = values,
@@ -153,51 +164,74 @@ class ndsweeps(data_util):
 
     def __build(self):
         
+        dims = []
+        for AX in self.AXES.values():
+            dims.append(AX.values.ndim)
+        
+        if not all(dims == dims[0]):
+            raise ValueError('axes must all have same dimensions.')
+        
+        #gets shape from last "AX" in previous for loop
+        SHAPE = AX.values().shape
+        
         #builds sweep type name
         axes_names = list(self.__axes.keys())
         self.__sweep_type = '_'.join(axes_names)
         
-        #creates meshgrids for each ax
-        __NDAXES = *self.AXES.values()
-        #shape, to be used to reshape data
-        self.__shape = __NDAXES[0].shape 
+        #creates bool array which is 1 if axis is external, 0 otherwise
+        is_external = np.array(int(AX['external'] for AX in self.AXES.values()))
+        
+        #checks that the external axis corresponds to last dimensions
+        #(this will be generalized in the future, where external axes can be
+        #put in any position)
+        if is_external != sorted(is_external):
+            raise NotImplementedError('external axes must be last.')
+        
+        
+        #total number of independent axes
+        NDIM = dims[0]
+        #shapes (assuming external axes are always last)
+        self.__INTERNAL_SHAPE = SHAPE[:NDIM-1]
+        self.__EXTERNAL_SHAPE = SHAPE[NDIM-1:]
         #total number of acquisitions
-        self.__N = reduce(lambda x, y: x * y, self.__shape)
-
-        #creates 1DAXES dict elements by flattening NDAXES dict element
-        for NDAX, key in zip(__NDAXES, self.__axes):
-            #values are flattened
-            values = NDAX.ravel()
-            #defines a "changed" mask, true if value[i] != value[i-1]
-            #this is needed to perform "action" only when value changed
-            changed = np.concatenate(([True], np.diff(values) != 0))
-            #assembles 1DAXES dict
-            self.__AXES[key] = {'values' : values,
-                                'changed' : changed, 
-                                'action' : self.__action[key]}
-            
-        for name, acquisition in self.__acquisitions.items():
-            
-            self.__data[name] = {}
-            
-            for trace_name in acquisition:
+        self.__NINT = reduce(lambda x, y: x * y, self.__INTERNAL_SHAPE)
+        #defines a slice to extract only the internal axes dimensions from
+        #internal axes meshgrids
+        _slice = tuple([slice(None) if x is False else 0 for x in is_external])
+    
+    
+        self.__flat_AXES = deepcopy(self.AXES)
+        #creates flattened_AXES dict elements by flattening AXES dict element
+        for AX, in self.AXES:
+            if self.AXES[AX].external == True:
+                #if axis is external, it flattens only the internal dimensions
+                self.flat_AXES[AX].values = np.reshape(self.AXES[AX].values, (self.__NINT,) + self.EXTERNAL_SHAPE)
+                #builds the "changed mask" for the internal axis
+                self.flat_AXES[AX].changed = np.concatenate(([True], np.all(np.diff(self.flat_AXES[AX].values, axis = 0) != 0, axis = -1)))
+            else:
+                #flattens the internal axis after removing external dimensions
+                self.flat_AXES[AX].values = np.ravel(self.AXES.values[_slice])
+                #builds the "changed mask" for the external axis
+                self.flat_AXES[AX].changed = np.concatenate(([True], np.diff(self.flat_AXES[AX].values) != 0))
                 
-                self.__data[name][trace_name] = []
-
+            
+        self.__data[self.acquisition.name] = []
+        
+        
     def single_iteration(self, i, save_temp):
         
         temp_axes = {} #temp axes dict
         self.__bar.update(i)
         #sets swept parameters
-        for AX in self.__AXES:
+        for AX in self.__flat_AXES:
             
-                #checks if ax has changed, then performs action
-                if self.__AXES[AX]['changed'][i]:
-                    axval = self.__AXES[AX]['values'][i]
-                    self.__AXES[AX]['action'](axval)
-                    
-                #inserts current value of ax in temp axes dict
-                temp_axes[AX] = self.__AXES[AX]['values'][i]
+            #checks if ax has changed, then performs action
+            if self.__flat_AXES[AX].changed[i]:
+                axval = self.__flat_AXES[AX].values[i]
+                self.__flat_AXES[AX].action(axval)
+                
+            #inserts current value of ax in temp axes dict
+            temp_axes[AX] = self.__flat_AXES[AX].values[i]
                                     
         #sweeps traces
         for acq_name, acquisition in self.__acquisitions.items():
@@ -673,9 +707,6 @@ class dataplot(object):
                         else fixed_indexes[key] for key in self.__axes_keys])
 
         data = self.__acquisitions[acquisition]
-        
-        xshape = data[ztrace].shape[-1]
-        yshape = data[ztrace].shape[-1]
         
         x, y = np.meshgrid(self.__axes[xname], self.__axes[yname])
         
