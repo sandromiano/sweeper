@@ -603,6 +603,7 @@ class dataplot(object):
                     yfunc = None, 
                     zfunc = None,
                     transpose = False,
+                    print_params = True,
                     **kwargs):
 
         '''
@@ -649,18 +650,10 @@ class dataplot(object):
                                               ytrace = ytrace,
                                               ztrace = ztrace)
     
-        if not transpose:
-            xdata = data['xdata']
-            xname = data['xname']
-            ydata = data['ydata']
-            yname = data['yname']
-
-        else:
-            xdata = data['ydata']
-            xname = data['yname']
-            ydata = data['xdata']
-            yname = data['xname']
-        
+        xdata = data['xdata']
+        xname = data['xname']
+        ydata = data['ydata']
+        yname = data['yname']
         zdata = data['zdata']
         zname = data['zname']
     
@@ -674,17 +667,30 @@ class dataplot(object):
             zdata = zfunc(zdata)
             zname = zfunc.__name__ + '(' + zname + ')'
         
-        fig, ax = plt.subplots()
-        fixed_params_string = self.generate_fixed_params_string(fixed_params)
-        fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
+        if not transpose:
+            __xdata = xdata
+            __ydata = ydata
+            __xname = xname
+            __yname = yname
+        else:
+            __xdata = ydata
+            __ydata = xdata
+            __xname = yname
+            __yname = xname
         
-        p = ax.pcolormesh(  xdata, 
-                            ydata, 
+        fig, ax = plt.subplots()
+        
+        if print_params:
+            fixed_params_string = self.generate_fixed_params_string(fixed_params)
+            fig.suptitle(fixed_params_string.expandtabs(), wrap = True)
+
+        p = ax.pcolormesh(  __xdata, 
+                            __ydata, 
                             zdata,
                             **kwargs)
 
-        ax.set_xlabel(xname)
-        ax.set_ylabel(yname)
+        ax.set_xlabel(__xname)
+        ax.set_ylabel(__yname)
         
         cbar = plt.colorbar(p)
         cbar.ax.set_ylabel(zname)
