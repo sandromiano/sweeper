@@ -10,53 +10,54 @@ from data import data_util, save_data, load_data, create_dir
 import progressbar
 from copy import copy, deepcopy
 
+
 class axis(object):
-    
-    def __init__(self, 
-                 name, 
-                 values, 
+
+    def __init__(self,
+                 name,
+                 values,
                  action,
-                 external = False):
+                 external=False):
 
         self.__name = name
         self.__values = values
         self.__action = action
         self.__external = external
         self.__changed = None
-        
+
     @property
     def name(self):
-        return(self.__name)
-    
+        return (self.__name)
+
     @property
     def values(self):
-        return(self.__values)
-    
+        return (self.__values)
+
     @property
     def action(self):
-        return(self.__action)
-    
+        return (self.__action)
+
     @property
     def external(self):
-        return(self.__external)
-    
+        return (self.__external)
+
     @property
     def changed(self):
-        return(self.__changed)
-    
+        return (self.__changed)
+
+
 class acquisition():
-    
+
     def __init__(self,
                  name,
                  action,
-                 preamble = None,
-                 external_axis = None):
-        
+                 preamble=None,
+                 external_axis=None):
         '''
         Acquisition class. The external axis
         is any externally swept parameter, for instance, frequency in a VNA.
         '''
-        
+
         self.__name = name
         self.__preamble = preamble
         self.__action = action
@@ -64,39 +65,41 @@ class acquisition():
 
     @property
     def name(self):
-        return(self.__name)
-    
+        return (self.__name)
+
     @property
     def action(self):
-        return(self.__action)
-    
+        return (self.__action)
+
     @property
     def external_axis(self):
-        return(self.__external_axis)
+        return (self.__external_axis)
+
 
 class experiment(object):
-    
+
     def __init__(self):
-        
+
         self.__axes = {}
         self.__acquisitions = {}
-    
+
     @property
     def axes(self):
-        return(self.__axes)
-    
+        return (self.__axes)
+
     @property
     def acquisitions(self):
-        return(self.__acquisitions)
-    
+        return (self.__acquisitions)
+
     def add_acquisition(self, acquisition):
         self.__acquisitions[acquisition.name] = acquisition
 
+
 class ndsweeps(data_util):
 
-    def __init__(self, wd = 'C:/data/'):
-        
-        super().__init__(wd = wd)
+    def __init__(self, wd='C:/data/'):
+
+        super().__init__(wd=wd)
         self.__state_dict = {}
         self.__axes = {}
         self.__action = {}
@@ -104,284 +107,285 @@ class ndsweeps(data_util):
         self.__flat_AXES = {}
         self.__acquisition = None
         self.__data = {}
-                
-    @property 
+
+    @property
     def state_dict(self):
-        
-        return(self.__state_dict)
-    
-    @property 
+
+        return (self.__state_dict)
+
+    @property
     def axes(self):
-        
-        return(self.__axes)
-    
+
+        return (self.__axes)
+
     @property
     def data(self):
-        
-        return(self.__data)
-    
+
+        return (self.__data)
+
     @property
     def AXES(self):
-        
-        return(self.__AXES)
-    
+
+        return (self.__AXES)
+
     @property
     def flat_AXES(self):
-        return(self.__flat_AXES)
-    
+        return (self.__flat_AXES)
+
     @property
     def acquisition(self):
-        
-        return(self.__acquisition)
-    
+
+        return (self.__acquisition)
+
     def add_state_entry(self, name, value):
-        
+
         self.__state_dict[name] = value
 
     def set_acquisition(self,
-                        name, 
+                        name,
                         action,
-                        preamble = None,
-                        external_AXIS = None):
-        
-        self.__acquisition  = acquisition(name = name,
-                                          action = action,
-                                          preamble = preamble,
-                                          external_AXIS = external_AXIS)
-        
+                        preamble=None,
+                        external_AXIS=None):
+
+        self.__acquisition = acquisition(name=name,
+                                         action=action,
+                                         preamble=preamble,
+                                         external_AXIS=external_AXIS)
+
         if external_AXIS is not None:
             self.__AXES[name] = external_AXIS
-        
+
     def add_AX(self, name, values, action):
-        
+
         if not isinstance(values, np.ndarray):
             raise ValueError('ax values must be numpy array.')
-        
-        self.__AXES[name] = axis(name = name,
-                                 values = values,
-                                 action = action,
-                                 external = False)
+
+        self.__AXES[name] = axis(name=name,
+                                 values=values,
+                                 action=action,
+                                 external=False)
 
     def __build(self):
-        
+
         dims = []
         for AX in self.AXES.values():
             dims.append(AX.values.ndim)
-        
+
         if not all(dims == dims[0]):
             raise ValueError('axes must all have same dimensions.')
-        
-        #gets shape from last "AX" in previous for loop
+
+        # gets shape from last "AX" in previous for loop
         SHAPE = AX.values().shape
-        
-        #builds sweep type name
+
+        # builds sweep type name
         axes_names = list(self.__axes.keys())
         self.__sweep_type = '_'.join(axes_names)
-        
-        #creates bool array which is 1 if axis is external, 0 otherwise
-        is_external = np.array(int(AX['external'] for AX in self.AXES.values()))
-        
-        #checks that the external axis corresponds to last dimensions
-        #(this will be generalized in the future, where external axes can be
-        #put in any position)
+
+        # creates bool array which is 1 if axis is external, 0 otherwise
+        is_external = np.array(int(AX['external']
+                               for AX in self.AXES.values()))
+
+        # checks that the external axis corresponds to last dimensions
+        # (this will be generalized in the future, where external axes can be
+        # put in any position)
         if is_external != sorted(is_external):
             raise NotImplementedError('external axes must be last.')
-        
-        
-        #total number of independent axes
+
+        # total number of independent axes
         NDIM = dims[0]
-        #shapes (assuming external axes are always last)
+        # shapes (assuming external axes are always last)
         self.__INTERNAL_SHAPE = SHAPE[:NDIM-1]
         self.__EXTERNAL_SHAPE = SHAPE[NDIM-1:]
-        #total number of acquisitions
+        # total number of acquisitions
         self.__NINT = reduce(lambda x, y: x * y, self.__INTERNAL_SHAPE)
-        #defines a slice to extract only the internal axes dimensions from
-        #internal axes meshgrids
+        # defines a slice to extract only the internal axes dimensions from
+        # internal axes meshgrids
         _slice = tuple([slice(None) if x is False else 0 for x in is_external])
-    
-    
+
         self.__flat_AXES = deepcopy(self.AXES)
-        #creates flattened_AXES dict elements by flattening AXES dict element
+        # creates flattened_AXES dict elements by flattening AXES dict element
         for AX, in self.AXES:
             if self.AXES[AX].external == True:
-                #if axis is external, it flattens only the internal dimensions
-                self.flat_AXES[AX].values = np.reshape(self.AXES[AX].values, (self.__NINT,) + self.EXTERNAL_SHAPE)
-                #builds the "changed mask" for the internal axis
-                self.flat_AXES[AX].changed = np.concatenate(([True], np.all(np.diff(self.flat_AXES[AX].values, axis = 0) != 0, axis = -1)))
+                # if axis is external, it flattens only the internal dimensions
+                self.flat_AXES[AX].values = np.reshape(
+                    self.AXES[AX].values, (self.__NINT,) + self.EXTERNAL_SHAPE)
+                # builds the "changed mask" for the internal axis
+                self.flat_AXES[AX].changed = np.concatenate(
+                    ([True], np.all(np.diff(self.flat_AXES[AX].values, axis=0) != 0, axis=-1)))
             else:
-                #flattens the internal axis after removing external dimensions
+                # flattens the internal axis after removing external dimensions
                 self.flat_AXES[AX].values = np.ravel(self.AXES.values[_slice])
-                #builds the "changed mask" for the external axis
-                self.flat_AXES[AX].changed = np.concatenate(([True], np.diff(self.flat_AXES[AX].values) != 0))
-                
-            
+                # builds the "changed mask" for the external axis
+                self.flat_AXES[AX].changed = np.concatenate(
+                    ([True], np.diff(self.flat_AXES[AX].values) != 0))
+
         self.__data[self.acquisition.name] = []
-        
-        
+
     def single_iteration(self, i, save_temp):
-        
-        temp_axes = {} #temp axes dict
+
+        temp_axes = {}  # temp axes dict
         self.__bar.update(i)
-        #sets swept parameters
+        # sets swept parameters
         for AX in self.__flat_AXES:
-            
-            #checks if ax has changed, then performs action
+
+            # checks if ax has changed, then performs action
             if self.__flat_AXES[AX].changed[i]:
                 axval = self.__flat_AXES[AX].values[i]
                 self.__flat_AXES[AX].action(axval)
-                
-            #inserts current value of ax in temp axes dict
+
+            # inserts current value of ax in temp axes dict
             temp_axes[AX] = self.__flat_AXES[AX].values[i]
-                                    
-        #sweeps traces
+
+        # sweeps traces
         for acq_name, acquisition in self.__acquisitions.items():
-            #acquires each trace component
-            
-            if save_temp: #creates temp_data dictionary if requested
-                temp_data = {acq_name : {}}
+            # acquires each trace component
+
+            if save_temp:  # creates temp_data dictionary if requested
+                temp_data = {acq_name: {}}
                 temp_data['axes'] = temp_axes
-            
+
             for trace_name, trace_func in acquisition.items():
-                
-                self.__data[acq_name][trace_name].append(trace_func())  
-                if save_temp: #fills temp_data dictionary if requested
+
+                self.__data[acq_name][trace_name].append(trace_func())
+                if save_temp:  # fills temp_data dictionary if requested
                     temp_data[acq_name][trace_name] = \
                         self.__data[acq_name][trace_name][-1]
-            
-            if save_temp: #saves temp_data dicitonary if requested
+
+            if save_temp:  # saves temp_data dicitonary if requested
                 temp_trace_folder = self.__folder + 'temp/' + acq_name
-                temp_name =  temp_trace_folder + '/' + str(i) + '.pkl'
+                temp_name = temp_trace_folder + '/' + str(i) + '.pkl'
                 save_data(temp_data, temp_name)
-                
+
     def fill_with_NaN(self, i):
-        
+
         for acq_name in self.__data:
-            
+
             for trace_name in self.__data[acq_name]:
-                
+
                 N = len(self.__data[acq_name][trace_name])
                 single_element = self.__data[acq_name][trace_name][0]
                 empty_element = single_element * np.NaN
                 self.__data[acq_name][trace_name] += \
-                    [empty_element for j in range (self.__N - N)]
-                
+                    [empty_element for j in range(self.__N - N)]
+
     def handle_exception(self, i):
-        
+
         user_input = ''
         while user_input not in ['Y', 'N']:
             user_input = input('Save temp data? (Y/N) ').upper()
         if user_input == 'Y':
             self.fill_with_NaN(i)
-        return(user_input)
-    
+        return (user_input)
+
     def reshape_data(self):
-        
+
         for acq_name, acq_data in self.__data.items():
-            
-            #THIS NEEDS TO BE DONE BETTER, SKETCHY AS IT IS NOW BECAUSE DOESN'T
-            #ALLOW DIFFERENT ITERATIONS TO HAVE DIFFERENT SHAPE. BEST IS TO
-            #FILL WITH NONE or NaN THE REMAINING SLOTS.
+
+            # THIS NEEDS TO BE DONE BETTER, SKETCHY AS IT IS NOW BECAUSE DOESN'T
+            # ALLOW DIFFERENT ITERATIONS TO HAVE DIFFERENT SHAPE. BEST IS TO
+            # FILL WITH NONE or NaN THE REMAINING SLOTS.
             for trace_name, trace_data in acq_data.items():
-                
+
                 if isinstance(trace_data[0], np.ndarray):
                     shape = trace_data[0].shape
-                    
+
                 else:
                     shape = ()
-                    
+
                 shape = self.__shape + shape
-                self.__data[acq_name][trace_name] = np.reshape(trace_data, shape)
+                self.__data[acq_name][trace_name] = np.reshape(
+                    trace_data, shape)
 
     def save_data(self):
-        #saves ND traces data
+        # saves ND traces data
         save_data(self.__data, self.__folder + 'traces.pkl')
         print('\n\ndata was saved in folder: ' + '\'' + self.__folder + '\'')
-        
-    def run(self, save_temp = True):
-        
-        self.__build() #builds flattened axes
-        
-        self.__folder = self.create_data_folder(sweep_type = self.__sweep_type,
-                                         temp = save_temp)
-        
-        if save_temp: #creates temp_folders for each acquisition if requested
+
+    def run(self, save_temp=True):
+
+        self.__build()  # builds flattened axes
+
+        self.__folder = self.create_data_folder(sweep_type=self.__sweep_type,
+                                                temp=save_temp)
+
+        if save_temp:  # creates temp_folders for each acquisition if requested
             for acq_name in self.__acquisitions:
                 temp_acquisition_folder = self.__folder + 'temp/' + acq_name
                 create_dir(temp_acquisition_folder)
-                
-        #saves axes data before starting, useful to reconstruct
+
+        # saves axes data before starting, useful to reconstruct
         save_data(self.__axes, self.__folder + 'axes.pkl')
-        #saves state dictionary, keeps memory of fixed settings
+        # saves state dictionary, keeps memory of fixed settings
         save_data(self.__state_dict, self.__folder + 'state.pkl')
 
-        self.__bar = progressbar.ProgressBar(max_value = self.__N)
-        
+        self.__bar = progressbar.ProgressBar(max_value=self.__N)
+
         for i in range(self.__N):
             try:
-                self.single_iteration(i = i, save_temp = save_temp)
-                    
+                self.single_iteration(i=i, save_temp=save_temp)
+
             except KeyboardInterrupt:
-                user_input = self.handle_exception(i = i)
+                user_input = self.handle_exception(i=i)
                 if user_input == 'N':
                     shutil.rmtree(self.__folder)
-                    return(None)
+                    return (None)
                 elif user_input == 'Y':
                     break
-        
+
         self.reshape_data()
         self.save_data()
-        #removes temp folder if created
+        # removes temp folder if created
         if save_temp:
             shutil.rmtree(self.__folder + 'temp/')
-        return(self.__folder)
-    
+        return (self.__folder)
+
+
 class dataplot(object):
-    
+
     def __init__(self):
         pass
-    
+
     def set_folder(self, folder):
         self.__folder = folder
-    
+
     def load_data(self):
-        
-        #loads data
+
+        # loads data
         self.__acquisitions = load_data(self.__folder + 'traces.pkl')
         self.__axes = load_data(self.__folder + 'axes.pkl')
         self.__state = load_data(self.__folder + 'state.pkl')
-        #list of available axes
+        # list of available axes
         self.__axes_keys = list(self.__axes.keys())
-    
+
     @property
     def axes(self):
-        return(self.__axes)
-    
+        return (self.__axes)
+
     @property
     def acquisitions(self):
-        return(self.__acquisitions)
-    
+        return (self.__acquisitions)
+
     @property
     def state(self):
-        return(self.__state)
-    
-    def get_slice(self, 
-                  fixed_params, 
-                  acquisition, 
-                  xtrace, 
+        return (self.__state)
+
+    def get_slice(self,
+                  fixed_params,
+                  acquisition,
+                  xtrace,
                   ytrace):
-        
         '''
         Parameters
         ----------
         fixed_params : dict {'param_name' : param_value}
             dict of parameters and their values at which slice data
-        
+
         acquisition : str
             name of the acquisition at which extract data
-        
+
         xtrace : str
             name of the trace to use for x
-        
+
         ytrace : str
             name of the trace to use for y
 
@@ -389,57 +393,56 @@ class dataplot(object):
         -------
         dictionary of sliced data
         '''
-        
+
         fixed_indexes = {}
-        
-        for param_name, param_value in zip(list(fixed_params.keys()), 
+
+        for param_name, param_value in zip(list(fixed_params.keys()),
                                            list(fixed_params.values())):
-            
-            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
-                                                   - param_value))
-        
-        #slice along xaxis, for fixed indexes of other parameters
+
+            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name]
+                                                         - param_value))
+
+        # slice along xaxis, for fixed indexes of other parameters
         _slice = tuple([fixed_indexes[key] for key in self.__axes_keys])
         data = self.acquisitions[acquisition]
-        
+
         if xtrace is not None:
             xname = xtrace
             xdata = data[xtrace][_slice]
         else:
             xname = ''
             xdata = None
-            
+
         yname = ytrace
         ydata = data[ytrace][_slice]
 
-        sliced_data = {'xname' : xname,
-                       'yname' : yname,
-                       'xdata' : xdata,
-                       'ydata' : ydata}
-            
-        return(sliced_data)
-    
-    def plot_slice(self, 
-                   fixed_params, 
-                   acquisition, 
-                   xtrace = None, 
-                   ytrace = None, 
-                   xfunc = None, 
-                   yfunc = None,
+        sliced_data = {'xname': xname,
+                       'yname': yname,
+                       'xdata': xdata,
+                       'ydata': ydata}
+
+        return (sliced_data)
+
+    def plot_slice(self,
+                   fixed_params,
+                   acquisition,
+                   xtrace=None,
+                   ytrace=None,
+                   xfunc=None,
+                   yfunc=None,
                    **kwargs):
-                
         '''
         Parameters
         ----------
         fixed_params : dict {'param_name' : param_value}
             dict of parameters and their values at which slice data
-        
+
         acquisition : str
             name of the acquisition at which extract data
-        
+
         xtrace : str
             name of the trace to use for x
-        
+
         ytrace : str
             name of the trace to use for y
 
@@ -448,60 +451,59 @@ class dataplot(object):
 
         yfunc : callable
             single-argument function to be applied to ytrace
-        
+
         **kwargs : optional arguments
             passed to plt.plot
         Returns
         -------
         axis of generated plot
         '''
-        
+
         if ytrace is None:
-            raise(ValueError('"ytrace" cannot be "None".'))
-        
-        data = self.get_slice(fixed_params = fixed_params,
-                              acquisition = acquisition,
-                              xtrace = xtrace, 
-                              ytrace = ytrace)
-        
+            raise (ValueError('"ytrace" cannot be "None".'))
+
+        data = self.get_slice(fixed_params=fixed_params,
+                              acquisition=acquisition,
+                              xtrace=xtrace,
+                              ytrace=ytrace)
+
         fig, ax = plt.subplots()
-        
+
         if xtrace is not None:
             xname = data['xname']
-            if xfunc is None: 
+            if xfunc is None:
                 xdata = data['xdata']
             else:
                 xdata = xfunc(data['xdata'])
                 xname = xfunc.__name__ + '(' + xname + ')'
         else:
             xname = ''
-            
+
         yname = data['yname']
         ydata = data['ydata']
-        
+
         if yfunc is not None:
             ydata = yfunc(ydata)
             yname = yfunc.__name__ + '(' + yname + ')'
-            
+
         if xtrace is not None:
             ax.plot(xdata, ydata, **kwargs)
             ax.set_xlabel(xname)
             ax.set_ylabel(yname)
-        else:     
+        else:
             ax.plot(ydata, **kwargs)
             ax.set_ylabel(yname)
-        
+
         plt.tight_layout()
-        
-        return(ax)
-    
-    def get_2dslice(self, 
-                    xname, 
+
+        return (ax)
+
+    def get_2dslice(self,
+                    xname,
                     fixed_params,
                     acquisition,
                     ytrace,
                     ztrace):
-
         '''
         Parameters
         ----------
@@ -531,50 +533,49 @@ class dataplot(object):
         '''
 
         fixed_indexes = {}
-        
-        for param_name, param_value in zip(list(fixed_params.keys()), 
+
+        for param_name, param_value in zip(list(fixed_params.keys()),
                                            list(fixed_params.values())):
-            
-            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
-                                                   - param_value))
-        
-        #slice along x axis, for fixed indexes of other parameters
+
+            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name]
+                                                         - param_value))
+
+        # slice along x axis, for fixed indexes of other parameters
         _slice = tuple([slice(None) if key == xname
                         else fixed_indexes[key] for key in self.__axes_keys])
 
         data = self.__acquisitions[acquisition]
         yshape = data[ytrace].shape[-1]
-        
-        x = np.repeat(self.__axes[xname][:, np.newaxis], yshape, axis = 1)
-        
-        sliced_data = {'xname' : xname,
-                       'yname' : ytrace,
-                       'zname' : ztrace,
-                       'xdata' : x,
-                       'ydata' : data[ytrace][_slice],
-                       'zdata' : data[ztrace][_slice]}
 
-        return(sliced_data)
+        x = np.repeat(self.__axes[xname][:, np.newaxis], yshape, axis=1)
+
+        sliced_data = {'xname': xname,
+                       'yname': ytrace,
+                       'zname': ztrace,
+                       'xdata': x,
+                       'ydata': data[ytrace][_slice],
+                       'zdata': data[ztrace][_slice]}
+
+        return (sliced_data)
 
     def plot_2dslice(self,
-                    fixed_params,
-                    acquisition, 
-                    xparam = None,
-                    ytrace = None,
-                    ztrace = None,
-                    xfunc = None,
-                    yfunc = None, 
-                    zfunc = None,
-                    transpose = False,
-                    **kwargs):
-
+                     fixed_params,
+                     acquisition,
+                     xparam=None,
+                     ytrace=None,
+                     ztrace=None,
+                     xfunc=None,
+                     yfunc=None,
+                     zfunc=None,
+                     transpose=False,
+                     **kwargs):
         '''
         Parameters
         ----------
-        
+
         fixed_params : dict {'param_name' : param_value}
             dict of parameters and their values at which slice data
-        
+
         acquisition : str
             name of the acquisition from which extract data
 
@@ -582,7 +583,7 @@ class dataplot(object):
             name of x axis along which extract data
         ytrace : str
             name of the trace to use for y
-        
+
         ztrace : str
             name of the trace to use for z
 
@@ -594,7 +595,7 @@ class dataplot(object):
 
         zfunc : callable
             single-argument function to be applied to ztrace
-        
+
         transpose : boolean (False)
             swaps x and y
 
@@ -605,13 +606,13 @@ class dataplot(object):
         -------
         axis of generated plot
         '''
-        
-        data = self.get_2dslice(xname = xparam,
-                                fixed_params = fixed_params,
-                                acquisition = acquisition,
-                                ytrace = ytrace,
-                                ztrace = ztrace)
-    
+
+        data = self.get_2dslice(xname=xparam,
+                                fixed_params=fixed_params,
+                                acquisition=acquisition,
+                                ytrace=ytrace,
+                                ztrace=ztrace)
+
         if not transpose:
             xdata = data['xdata']
             xname = data['xname']
@@ -623,10 +624,10 @@ class dataplot(object):
             xname = data['yname']
             ydata = data['xdata']
             yname = data['xname']
-        
+
         zdata = data['zdata']
         zname = data['zname']
-    
+
         if xfunc is not None:
             xdata = xfunc(xdata)
             xname = xfunc.__name__ + '(' + xname + ')'
@@ -636,32 +637,31 @@ class dataplot(object):
         if zfunc is not None:
             zdata = zfunc(zdata)
             zname = zfunc.__name__ + '(' + zname + ')'
-        
+
         fig, ax = plt.subplots()
-        
-        p = ax.pcolormesh(xdata, 
-                          ydata, 
+
+        p = ax.pcolormesh(xdata,
+                          ydata,
                           zdata,
                           **kwargs)
 
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
-        
+
         cbar = plt.colorbar(p)
         cbar.ax.set_ylabel(zname)
-        
+
         plt.tight_layout()
-        
-        return(ax)
-    
-    def get_2dslice_reduced(self, 
+
+        return (ax)
+
+    def get_2dslice_reduced(self,
                             xname,
                             yname,
                             fixed_params,
                             acquisition,
                             ztrace,
                             reduce_func):
-        
         '''
             Parameters
             ----------
@@ -670,13 +670,13 @@ class dataplot(object):
 
             yname : str
                 name of y axis along which extract data
-            
+
             fixed_params : dict {'param_name' : param_value}
                 dict of parameters and their values at which slice data
-            
+
             acquisition : str
                 name of the acquisition at which extract data
-            
+
             ztrace : str
                 name of the trace to use for z
 
@@ -693,52 +693,51 @@ class dataplot(object):
                     'ydata' : y,
                     'zdata' : reduce_func(z)}
             '''
-        
+
         fixed_indexes = {}
-        
-        for param_name, param_value in zip(list(fixed_params.keys()), 
+
+        for param_name, param_value in zip(list(fixed_params.keys()),
                                            list(fixed_params.values())):
-            
-            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name] \
-                                                   - param_value))
-        
-        #slice along x axis, for fixed indexes of other parameters
+
+            fixed_indexes[param_name] = np.argmin(np.abs(self.axes[param_name]
+                                                         - param_value))
+
+        # slice along x axis, for fixed indexes of other parameters
         _slice = tuple([slice(None) if key == xname or key == yname
                         else fixed_indexes[key] for key in self.__axes_keys])
 
         data = self.__acquisitions[acquisition]
-        
+
         x, y = np.meshgrid(self.__axes[xname], self.__axes[yname])
-        
-        sliced_data = {'xname' : xname,
-                       'yname' : yname,
-                       'zname' : ztrace,
-                       'xdata' : x,
-                       'ydata' : y,
-                       'zdata' : reduce_func(data[ztrace][_slice])}
-            
-        return(sliced_data)            
-    
+
+        sliced_data = {'xname': xname,
+                       'yname': yname,
+                       'zname': ztrace,
+                       'xdata': x,
+                       'ydata': y,
+                       'zdata': reduce_func(data[ztrace][_slice])}
+
+        return (sliced_data)
+
     def plot_2dslice_reduced(self,
-                            fixed_params,
-                            acquisition, 
-                            xparam = None,
-                            yparam = None,
-                            ztrace = None,
-                            reduce_func = lambda x : np.mean(x, axis = -1),
-                            xfunc = None,
-                            yfunc = None, 
-                            zfunc = None,
-                            transpose = False,
-                            **kwargs):
-        
+                             fixed_params,
+                             acquisition,
+                             xparam=None,
+                             yparam=None,
+                             ztrace=None,
+                             reduce_func=lambda x: np.mean(x, axis=-1),
+                             xfunc=None,
+                             yfunc=None,
+                             zfunc=None,
+                             transpose=False,
+                             **kwargs):
         '''
             Parameters
             ----------
-            
+
             fixed_params : dict {'param_name' : param_value}
                 dict of parameters and their values at which slice data
-            
+
             acquisition : str
                 name of the acquisition at which extract data
 
@@ -763,14 +762,14 @@ class dataplot(object):
                     'ydata' : y,
                     'zdata' : reduce_func(z)}
             '''
-        
-        data = self.get_2dslice_reduced(xname = xparam, 
-                                        yname = yparam,
-                                        fixed_params = fixed_params,
-                                        acquisition = acquisition,
-                                        ztrace = ztrace,
-                                        reduce_func = reduce_func)
-         
+
+        data = self.get_2dslice_reduced(xname=xparam,
+                                        yname=yparam,
+                                        fixed_params=fixed_params,
+                                        acquisition=acquisition,
+                                        ztrace=ztrace,
+                                        reduce_func=reduce_func)
+
         if not transpose:
             xdata = data['xdata']
             xname = data['xname']
@@ -782,10 +781,10 @@ class dataplot(object):
             xname = data['yname']
             ydata = data['xdata']
             yname = data['xname']
-        
+
         zdata = data['zdata']
         zname = data['zname']
-         
+
         if xfunc is not None:
             xdata = xfunc(xdata)
             xname = xfunc.__name__ + '(' + xname + ')'
@@ -795,14 +794,14 @@ class dataplot(object):
         if zfunc is not None:
             zdata = zfunc(zdata)
             zname = zfunc.__name__ + '(' + zname + ')'
-         
+
         fig, ax = plt.subplots()
-         
-        p = ax.pcolormesh(xdata, 
-                        ydata, 
-                        zdata,
-                        **kwargs)
-    
+
+        p = ax.pcolormesh(xdata,
+                          ydata,
+                          zdata,
+                          **kwargs)
+
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
 
@@ -811,13 +810,13 @@ class dataplot(object):
 
         plt.tight_layout()
 
-        return(ax)
-                
-    def interactive_plot(self, 
-                         acquisition = None, 
-                         trace = None, 
-                         bins = 50,
-                         lim = 0.5):
+        return (ax)
+
+    def interactive_plot(self,
+                         acquisition=None,
+                         trace=None,
+                         bins=50,
+                         lim=0.5):
         '''
         Experimental - not documented yet
         '''
@@ -825,15 +824,15 @@ class dataplot(object):
         xdata = acquisition[trace].real
         ydata = acquisition[trace].imag
         zeros = tuple([0 for ax in self.axes])
-        hist0 = np.histogram2d(xdata[zeros], ydata[zeros], bins = bins,
-                               density = True, 
-                               range = [[-lim, lim],[-lim, lim]])
-        
+        hist0 = np.histogram2d(xdata[zeros], ydata[zeros], bins=bins,
+                               density=True,
+                               range=[[-lim, lim], [-lim, lim]])
+
         # Create the figure and the line that we will manipulate
-        
+
         fig, ax = plt.subplots()
         quad = ax.pcolormesh(hist0[1], hist0[2], hist0[0])
-    
+
         ax.set_xlabel('Re')
         ax.set_xlabel('Im')
         ax.set_aspect(1)
@@ -841,120 +840,119 @@ class dataplot(object):
         plt.axvline(0)
         # adjust the main plot to make room for the sliders
         plt.subplots_adjust(left=0.25, bottom=0.3)
-    
+
         self.sliders = []
-    
+
         for i, ax in enumerate(self.axes):
-            
+
             sl = Slider(
-                ax = plt.axes([0.25, 0.1 + i * 0.05, 0.65, 0.03]),
-                label = ax,
-                valmin = self.axes[ax][0],
-                valmax = self.axes[ax][-1],
-                valstep = self.axes[ax],
-                valinit = self.axes[ax][0],
+                ax=plt.axes([0.25, 0.1 + i * 0.05, 0.65, 0.03]),
+                label=ax,
+                valmin=self.axes[ax][0],
+                valmax=self.axes[ax][-1],
+                valstep=self.axes[ax],
+                valinit=self.axes[ax][0],
             )
             self.sliders.append(sl)
-    
+
         # The function to be called anytime a slider's value changes
         def update(val):
-            indexes = tuple([np.where(self.axes[ax] == slider.val)[0][0] 
-                       for ax, slider in zip(self.axes, self.sliders)])
-            hist = np.histogram2d(xdata[indexes], 
-                                   ydata[indexes], 
-                                   bins = bins, 
-                                   density = True,
-                                   range = [[-lim, lim],[-lim, lim]])
-            
+            indexes = tuple([np.where(self.axes[ax] == slider.val)[0][0]
+                             for ax, slider in zip(self.axes, self.sliders)])
+            hist = np.histogram2d(xdata[indexes],
+                                  ydata[indexes],
+                                  bins=bins,
+                                  density=True,
+                                  range=[[-lim, lim], [-lim, lim]])
+
             quad.set_array(hist[0])
             fig.canvas.draw_idle()
-    
+
         for slider in self.sliders:
             # register the update function with each slider
             slider.on_changed(update)
-    
+
         # Create a `matplotlib.widgets.Button` to reset the sliders to initial values.
-    
+
         def reset(event):
             for slider in self.sliders:
                 slider.reset()
-    
+
         resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
         button = Button(resetax, 'Reset', hovercolor='0.975')
         button.on_clicked(reset)
-    
+
         plt.show()
-        
+
     def interactive_1dplot(self,
-                           acquisition = None, 
-                           xtrace = None, 
-                           ytrace = None, 
-                           xfunc = None,
-                           yfunc = None,
-                           ylim = None,
+                           acquisition=None,
+                           xtrace=None,
+                           ytrace=None,
+                           xfunc=None,
+                           yfunc=None,
+                           ylim=None,
                            **kwargs):
-        
         '''
         Experimental - not documented yet
         '''
 
         acquisition = self.acquisitions[acquisition]
-        
+
         zeros = tuple([0 for ax in self.axes])
-        
+
         xdata = acquisition[xtrace]
         ydata = acquisition[ytrace]
-        
+
         if xfunc is not None:
             xdata = xfunc(xdata)
-            
+
         if yfunc is not None:
             ydata = yfunc(ydata)
-        
+
         # Create the figure and the line that we will manipulate
         fig, ax = plt.subplots()
         plot, = ax.plot(xdata[zeros], ydata[zeros], **kwargs)
-        
+
         if ylim is not None:
             ax.set_ylim(ylim)
-    
+
         # adjust the main plot to make room for the sliders
-        plt.subplots_adjust(left = 0.25, bottom = 0.3)
-    
+        plt.subplots_adjust(left=0.25, bottom=0.3)
+
         self.sliders = []
-    
+
         for i, ax in enumerate(self.axes):
-            
+
             sl = Slider(
-                ax = plt.axes([0.25, 0.1 + i * 0.05, 0.65, 0.03]),
-                label = ax,
-                valmin = self.axes[ax][0],
-                valmax = self.axes[ax][-1],
-                valstep = self.axes[ax],
-                valinit = self.axes[ax][0],
+                ax=plt.axes([0.25, 0.1 + i * 0.05, 0.65, 0.03]),
+                label=ax,
+                valmin=self.axes[ax][0],
+                valmax=self.axes[ax][-1],
+                valstep=self.axes[ax],
+                valinit=self.axes[ax][0],
             )
             self.sliders.append(sl)
-    
+
         # The function to be called anytime a slider's value changes
         def update(val):
-            indexes = tuple([np.where(self.axes[ax] == slider.val)[0][0] 
-                       for ax, slider in zip(self.axes, self.sliders)])
-            
+            indexes = tuple([np.where(self.axes[ax] == slider.val)[0][0]
+                             for ax, slider in zip(self.axes, self.sliders)])
+
             plot.set_data(xdata[indexes], ydata[indexes])
             fig.canvas.draw_idle()
-    
+
         for slider in self.sliders:
             # register the update function with each slider
             slider.on_changed(update)
-    
+
         # Create a `matplotlib.widgets.Button` to reset the sliders to initial values.
-    
+
         def reset(event):
             for slider in self.sliders:
                 slider.reset()
-    
+
         resetax = plt.axes([0.8, 0.025, 0.1, 0.04])
         button = Button(resetax, 'Reset', hovercolor='0.975')
         button.on_clicked(reset)
-    
+
         plt.show()
